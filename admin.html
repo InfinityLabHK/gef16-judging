@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow"><title>閃耀之星第十六屆初選 · 後台</title><link rel="stylesheet" href="styles.css">
+<style>.gate{position:fixed;inset:0;z-index:100;background:var(--page);display:flex;align-items:center;justify-content:center;padding:16px}.gate.hidden{display:none}
+.gate-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px 24px;width:min(380px,100%);box-shadow:var(--shadow)}.gate-card label{display:block;margin-top:10px}
+.gate-card input{display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px;background:var(--panel2)}
+.pb .row{display:flex;align-items:center;gap:10px}.pb .v{width:170px}.atabs{display:flex;gap:2px;flex-wrap:wrap}.atabs button{background:none;border:0;border-radius:8px;padding:6px 10px;color:var(--muted);font-size:14px}.atabs button.on{background:var(--goldSoft);color:var(--goldText);font-weight:600}
+.wrap.wide{max-width:1500px}</style></head>
+<body><header class="top"><div class="wrap wide"><div class="topbar" style="flex-wrap:wrap;height:auto;min-height:56px;gap:8px">
+<div class="brand">閃耀之星第十六屆初選 · 後台<span class="micro" id="who"></span></div><nav class="atabs" id="tabs"></nav><span style="flex:1"></span>
+<a class="iconbtn" href="index.html">評審頁</a><button class="iconbtn" id="refresh">重新整理</button><button class="iconbtn" id="themeBtn">深／淺</button><button class="iconbtn" id="logout">登出</button></div></div></header>
+<main><div class="wrap wide" id="view"></div></main><div class="gate" id="gate"></div><div class="toast" id="toast"></div>
+<script src="config.js"></script><script src="api.js"></script><script src="admin.js"></script></body></html>
