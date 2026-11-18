@@ -6,7 +6,8 @@ const KEY=window.GEF_KEY||"gef16_review_v1";
 const ITEMS=[["potential","①潛能表現成績",15],["vision","②願景",10],["adversity","③處理逆境",10],["need","④發展需要",10],["recommendation","推薦人評語",30],["finance","經濟、家境和需要（暫定）",25]];
 const REASONS=["才華","願景","逆境","需要","推薦","家境"];
 /* 家境分（評分表 25%）：預設按學校勾選；評審可自行調整。預設分只顯示，不寫入任何紀錄。 */
-const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":1};
+const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":0};
+const finPts=v=>v==null?"":`= 評分表 ${v*5} / 25 分`;
 const FIN_REASONS=["另有經濟困難證據","資助勾選與評語不符","個人專業判斷"];
 function finDefault(s){const k=s.finance.support||"未勾選";return Object.prototype.hasOwnProperty.call(FIN_BASE,k)?FIN_BASE[k]:null;}
 function finMine(s){const d=S.decisions[s.id];const v=d&&d.override?d.override.finance:null;return v==null||v===""?null:Number(v);}
@@ -14,13 +15,13 @@ function finEff(s){const m=finMine(s);return m!=null?m:finDefault(s);}
 function finCell(s){const m=finMine(s),df=finDefault(s);if(m!=null)return `<b>${m}</b> <span class="chip fin-adj" title="預設 ${df??"待核"}">已調整</span>`;return df!=null?`<span class="muted">${df}</span>`:'<span class="chip warn">待核</span>';}
 function finBoxHTML(s){const d=S.decisions[s.id]||{override:{}};const o=d.override||{};const m=finMine(s),df=finDefault(s),sup=s.finance.support||"未勾選";
  const eff=m!=null?m:df;const rs=o.finance_reasons||[];
- return `<div class="finhead"><span class="small"><b>家境分</b> <span class="muted">（評分表 25%，1–5）</span></span>
-  <span class="finval">${eff!=null?eff:"—"}</span>
+ return `<div class="finhead"><span class="small"><b>家境分</b> <span class="muted">（評分表 25%，0–5 級）</span></span>
+  <span class="finval">${eff!=null?eff:"—"}</span>${eff!=null?`<span class="micro muted">${finPts(eff)}</span>`:""}
   ${m!=null?`<span class="chip fin-adj">已調整</span><span class="micro muted">預設 ${df!=null?df:"待核"}</span><button class="btn sm" data-fin-reset>還原預設</button>`:df!=null?`<span class="micro muted">預設 · 按學校勾選「${esc(sup)}」</span>`:`<span class="chip warn">待核</span><span class="micro muted">學校未勾選資助，請按表格內容自評</span>`}
   ${s.finance.other_hardship?'<span class="chip warn" title="見上方「其他經濟困難」原文">請留意：學校另填經濟困難</span>':""}</div>
- <div class="finseg" role="group" aria-label="我的家境分">${[1,2,3,4,5].map(n=>`<button data-fin="${n}" class="${eff===n?"on":""}${df===n&&m==null?" def":""}">${n}</button>`).join("")}</div>
+ <div class="finseg" role="group" aria-label="我的家境分">${[0,1,2,3,4,5].map(n=>`<button data-fin="${n}" class="${eff===n?"on":""}${df===n&&m==null?" def":""}">${n}</button>`).join("")}</div>
  ${m!=null?`<div class="finwhy"><span class="micro muted">調整理由（選填）：</span>${FIN_REASONS.map(r=>`<button class="${rs.includes(r)?"on":""}" data-finr="${esc(r)}">${esc(r)}</button>`).join("")}<input class="finnote" id="finNote" maxlength="120" placeholder="其他理由（選填）" value="${esc(o.finance_note||"")}"></div>`:""}
- <div class="micro muted" style="margin-top:4px">綜援 5／書簿費全免 4／半免 3／無資助但有具體可核困難 2／無 1。預設只是起點，按你的專業判斷調整即可。</div>`;}
+ <div class="micro muted" style="margin-top:4px">綜援 5／書簿費全免 4／半免 3／無資助但有具體可核困難 2／無資助 0（每 1 級 = 5 分，綜援全取 25 分）。預設只是起點，按你的專業判斷調整即可。</div>`;}
 const TIERS={A:"優先入圍",B:"考慮",C:"暫不考慮"};
 const DOMS=["語言","邏輯數學","人際關係","空間","音樂","身體動覺","綜合學業","其他"];
 const GROUPS=["語言","邏輯數學","人際關係","空間","音樂","身體動覺","全面"];
@@ -194,7 +195,7 @@ function renderGuide(v){
    <li>${window.GEF_WEB?"你已用個人帳號登入。所有分層、籃子、理由、備註<b>自動儲存到伺服器</b>；電腦和手機用同一帳號會同步。":"在右上「設定」填評審代號（Scarlett 會告訴你）。所有操作自動保存在你這部裝置的瀏覽器內。"}</li>
    <li>先做下方的<b>校準</b>：自己先評 ${META.calibration_ids.length||5} 份，再揭曉 AI 分，看看彼此差距。</li>
    <li>到「學生總表」逐位打開卡片，<b>先讀自薦文章和推薦評語</b>，再看雷達、成長軌跡及獎項明細；AI 建議分預設摺疊，讀完才展開。</li>
-   <li>每看完一位，在卡片底部點分層：<b>優先入圍／考慮／暫不考慮</b>，並勾選打動你的理由。卡片頂部的<b>家境分</b>已按學校勾選給出預設（綜援 5／全免 4／半免 3／無 1），你可按專業判斷直接調整，並可在「我的評審」寫下你的家境評分原則。</li>
+   <li>每看完一位，在卡片底部點分層：<b>優先入圍／考慮／暫不考慮</b>，並勾選打動你的理由。卡片頂部的<b>家境分</b>已按學校勾選給出預設（綜援 5／全免 4／半免 3／無資助 0；每級 5 分，綜援全取 25 分），你可按專業判斷直接調整，並可在「我的評審」寫下你的家境評分原則。</li>
    <li>到「我的評審」整理優先入圍名單；匯出前看一眼「我的名單輪廓」，${window.GEF_WEB?"確認名單即可，結果已自動儲存（「下載備份」只作個人備份）。":"最後按<b>匯出我的評審結果</b>，把檔案傳回 Scarlett。"}</li>
   </ol></div>
   <div class="panel"><h3 style="margin-bottom:8px">幾個原則</h3>
@@ -385,7 +386,7 @@ function openCard(id,keepScroll){const prevScroll=keepScroll?document.getElement
  <section class="sec noprint-card" id="sec-review"><div class="panel"><h2 style="margin-top:0">我的評審</h2>
   <div class="tierbtns">${Object.entries(TIERS).map(([k,l])=>`<button class="${k} ${d.tier===k?"on":""}" data-tier="${k}">${l}</button>`).join("")}</div>
   <div class="small muted" style="margin-top:8px">打動我的是（可多選）：</div><div class="reasons">${REASONS.map(r=>`<button class="${d.reasons.includes(r)?"on":""}" data-r="${r}">${r}</button>`).join("")}</div>
-  <details class="box" style="margin-top:12px"><summary class="small">調整三大準則評分（可選）</summary><div class="body"><div class="small muted">留空即接受 AI 建議；填寫即以你的級別為準（1–5）。</div>${ITEMS.map(([k,l])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span class="small">${l}</span><select data-ov="${k}"><option value="">${k==="finance"?`預設 ${finDefault(s)??"待核"}`:`AI ${hasAI(s)?(s.ai.final[k].level??"—"):"—"}`}</option>${[1,2,3,4,5].map(n=>`<option ${d.override[k]==n?"selected":""}>${n}</option>`).join("")}</select></div>`).join("")}</div></details>
+  <details class="box" style="margin-top:12px"><summary class="small">調整三大準則評分（可選）</summary><div class="body"><div class="small muted">留空即接受 AI 建議；填寫即以你的級別為準（1–5；家境 0–5）。</div>${ITEMS.map(([k,l])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span class="small">${l}</span><select data-ov="${k}"><option value="">${k==="finance"?`預設 ${finDefault(s)??"待核"}`:`AI ${hasAI(s)?(s.ai.final[k].level??"—"):"—"}`}</option>${(k==="finance"?[0,1,2,3,4,5]:[1,2,3,4,5]).map(n=>`<option ${d.override[k]!=null&&d.override[k]==n?"selected":""}>${n}</option>`).join("")}</select></div>`).join("")}</div></details>
   <div class="small muted" style="margin:8px 0 4px">備註（只有你看到，會隨結果匯出）</div><textarea class="note" id="cNote">${esc(d.note)}</textarea>
   <div class="small muted" id="cStat" style="margin-top:6px">${statTxt(d)}</div></div></section>
  </div>
@@ -571,7 +572,7 @@ function renderMethod(v){
  ["m2","二、計分",`<div class="tscroll"><table class="t"><thead><tr><th>準則</th><th>細項</th><th>權重</th><th>主要證據來源</th></tr></thead><tbody><tr><td rowspan="4">潛能和表述 45%</td><td>①潛能、表現、成績</td><td>15</td><td>獎項表（每項層級×名次＝整數分；最佳五項為參考指數）、活動表、文章</td></tr><tr><td>②願景</td><td>10</td><td>文章</td></tr><tr><td>③處理逆境</td><td>10</td><td>文章（只看行動與反思）</td></tr><tr><td>④發展需要</td><td>10</td><td>文章（獎學金用途）</td></tr><tr><td>推薦人評語 30%</td><td>學校推薦</td><td>30</td><td>第 (二) 部分評語（只看具體事例）</td></tr><tr><td>經濟、家境和需要 25%</td><td>暫定規則</td><td>25</td><td>資助勾選、其他經濟困難、文章及評語中的家境證據</td></tr></tbody></table></div><p class="small muted" style="margin-top:8px">加權總分 = Σ（級別 ÷ 5 × 權重）。分數段：高 ≥80、中高 70–79、中 60–69、待商 &lt;60。細項分配 15／10／10／10 暫定，待委員會確認。章程準則 2「待人處事態度、對家庭及社會的承擔」作為願景及逆境的證據面向，不另設分。</p>`],
  ["m3","三、評分錨點",anchorsHTML()],
  ["m3b","三之二、儀表板計法",`<p>· 才能雷達六軸：語言、邏輯數學、人際關係、空間、音樂、身體動覺（基金章程提名組別，「全面才能組」不設軸），每軸指數＝該範疇計入獎項的分數和；≥60→5、≥30→4、≥12→3、≥3→2、有紀錄→1。</p><p>· 素質雷達六軸：高層次思維、創造力、個人及社交能力（教育局資優教育三大元素）；堅毅、責任與承擔、仁愛與同理（《小學教育課程指引》2024 首要價值觀）；每軸 0–5 為具體事例的強度，附引句及頁碼。</p><p>· STEAM 雷達按賽事及活動名稱歸類；六個資優範疇雷達按${ECR_TITLE}歸類；兩者同樣以計入分數和換算 0–5 級。</p><p>· 資優三環（Renzulli, 1978）：能力＝最佳五項支持級別、創造力＝素質軸、工作熱忱＝堅毅軸與持續年數。</p><p>· 全部描述性，不進入 45／30／25 計分。</p>`],
- ["m4","四、暫定項目",`<p>· 經濟分級：綜援 5 ／ 書簿費全免 4 ／ 半免 3 ／ 無資助但有可核困難 2 ／ 無 1；有資助且另有具體困難 +1，上限 5。</p><p>· 家境分（平台做法）：卡片預設分只按學校勾選（綜援 5／全免 4／半免 3／無 1；未勾選列「待核」，不推定）；學校另填「其他經濟困難」者標「請留意」，不自動加分。每位評審可按專業判斷調整並選填理由，亦可寫下個人評分原則；後台並列預設分、各評審分數及分歧，供委員會參考，不改變入圍人次的匯總。</p><p>· 獎項層級：國際 5 ／ 全國 4 ／ 全港 3 ／ 地區學界機構 2 ／ 校內 1；商業收費競賽最高 2；考級不計。</p><p>· ${esc(META.index_rule)}</p><p>· 校際音樂節／朗誦節：冠亞季 10／8／6、優良 3、良好 1；藝術類按分數段頒發的金／銀 3、銅 1。</p><p>· 文書核對：獎項表內容完全相同者視為疑重複填寫，只計一次，不自動扣分。</p><p>· 同校提名超過兩名（章程上限）只標示不處理。</p>`],
+ ["m4","四、暫定項目",`<p>· 經濟分級（2026-11-18 委員會修訂）：綜援 5 ／ 書簿費全免 4 ／ 半免 3 ／ 無資助但有可核困難 2 ／ 無資助 0；有資助且另有具體困難 +1，上限 5。每級折合評分表 5 分（綜援全取 25 分）。</p><p>· 家境分（平台做法）：卡片預設分只按學校勾選（綜援 5／全免 4／半免 3／無資助 0，每級折合評分表 5 分；未勾選列「待核」，不推定）；學校另填「其他經濟困難」者標「請留意」，不自動加分。每位評審可按專業判斷調整並選填理由，亦可寫下個人評分原則；後台並列預設分、各評審分數及分歧，供委員會參考，不改變入圍人次的匯總。</p><p>· 獎項層級：國際 5 ／ 全國 4 ／ 全港 3 ／ 地區學界機構 2 ／ 校內 1；商業收費競賽最高 2；考級不計。</p><p>· ${esc(META.index_rule)}</p><p>· 校際音樂節／朗誦節：冠亞季 10／8／6、優良 3、良好 1；藝術類按分數段頒發的金／銀 3、銅 1。</p><p>· 文書核對：獎項表內容完全相同者視為疑重複填寫，只計一次，不自動扣分。</p><p>· 同校提名超過兩名（章程上限）只標示不處理。</p>`],
  ["m5","五、對照框架及出處",`<ul class="src"><li><b>${ECR_TITLE}</b>：§4.3.2；全文見第六節。</li><li><b>資優教育三大元素</b>：高層次思維技巧、創造力、個人及社交能力。<a href="https://www.edb.gov.hk/tc/curriculum-development/curriculum-area/gifted/index.html" target="_blank" rel="noopener">教育局資優教育網頁</a>。</li><li><b>三層架構推行模式</b>：第三層「在校外為特別資優學生，提供特定的專門訓練學習機會」；「閃耀之星」屬校外培育，定位呼應第三層，官方未點名任何機構。</li><li><b>多元智能</b>：教育局原則「資優的定義應擴闊，並採用多元智能的概念」；基金章程七個提名組別即此概念。</li><li><b>首要培育的價值觀和態度（十二個）</b>：《小學教育課程指引》（2024）。<a href="https://edb.gov.hk/attachment/tc/curriculum-development/major-level-of-edu/primary/curriculum-documents/Primary_Education_Curriculum_Guide/PECG%202024_ch1.pdf" target="_blank" rel="noopener">PDF</a>。</li><li><b>資優教育基金（Gifted Education Foundation）</b>：「閃耀之星」資助「在不同範疇有卓越表現或另類才華而家庭資源貧乏的資優兒童」。<a href="https://gef.org.hk/" target="_blank" rel="noopener">gef.org.hk</a>。</li><li><b>章程評審準則</b>：卓越表現及潛質；待人處事的態度，對家庭及社會的承擔；就讀學校的推薦；學生的家境狀況。小四至小六；每校最多提名兩名；名額約 25。</li><li><b>資優三環概念</b>：Renzulli, J. S. (1978). What makes giftedness? <i>Phi Delta Kappan</i>, 60(3), 180–184.</li><li>注意：教育局 2016 年另設「資優教育基金」（Gifted Education <i>Fund</i>），與本基金不是同一機構。</li></ul>`],
  ["m6","六、六個資優範疇全文",`<h3>${ECR_TITLE}</h3>${ecrList()}`],
  ["m7","七、為何提供分布提示、為何不設配額",`<p>在『我的評審』頁，你會看到一個『我的名單輪廓』。放這面鏡子，是因為 229 份申請表逐份讀完，人很難記得自己選了多少個同一類型的學生；就像課室裡老師點名回答問題，不是誰答得不好，而是視線自然落在某些角落。輪廓只把你自己名單的形狀放在全體申請人旁邊給你看，沒有目標線，沒有建議人數。基金章程沒有任何配額，宗旨是資助在不同範疇有卓越表現或另類才華而家庭資源貧乏的學生；看見之後是否調整，完全由每位評審按專業判斷決定。同一道理，『值得多看一眼』標籤只是把資料裡容易被略過的事實標出來，不加分、不排序，最後入圍名單由委員會決定。</p>`],

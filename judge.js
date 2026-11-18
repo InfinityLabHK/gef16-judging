@@ -60,15 +60,15 @@ async function start(){
   const h=(location.hash||"").replace("#","");if(/^\d{3}$/.test(h)&&window.OPEN_CARD)window.OPEN_CARD(h);
 }
 /* ---------- 更新通知（2026-11-18 家境分）：每人看一次，按「我知道了」才進入；只記錄已讀，不改任何評審紀錄 ---------- */
-const NOTICE_ID="fin-20261118";
+const NOTICE_ID="fin-20261118b";
 function showNotice(){const g=$("gate");g.classList.remove("hidden");
   g.innerHTML=`<div class="gate-card notice" role="dialog" aria-modal="true" aria-labelledby="nT" style="width:min(560px,100%);max-height:92vh;overflow:auto">
-   <div class="micro muted">平台更新 · 2026 年 11 月 18 日</div>
+   <div class="micro muted">平台更新 · 2026 年 11 月 18 日（下午按委員會意見修訂：無資助改為 0 分）</div>
    <h2 id="nT" style="margin:4px 0 10px">新功能：家境分</h2>
    <p class="small" style="margin-bottom:10px">按委員會意見，平台加入「經濟、家境和需要」（評分表 25%）的評分，讓每位評審都可以按自己的專業判斷評分。</p>
    <ol class="small" style="padding-left:20px;margin:0 0 10px">
-    <li style="margin:6px 0"><b>預設分已備好：</b>每張學生卡片頂部新增「家境分」，按學校勾選給出預設：綜援 5／書簿費全免 4／半免 3／無資助 1。學校未勾選的顯示「待核」。</li>
-    <li style="margin:6px 0"><b>需要時才調整：</b>如你認為需要調整，直接按 1–5 即可，可選填理由；按「還原預設」可取消。不調整就沿用預設，不用逐一處理。</li>
+    <li style="margin:6px 0"><b>預設分已備好：</b>每張學生卡片頂部新增「家境分」，按學校勾選給出預設：綜援 5／書簿費全免 4／半免 3／無資助 0（每級折合評分表 5 分，綜援全取 25 分）。學校未勾選的顯示「待核」。</li>
+    <li style="margin:6px 0"><b>需要時才調整：</b>如你認為需要調整，直接按 0–5 即可，可選填理由；按「還原預設」可取消。不調整就沿用預設，不用逐一處理。</li>
     <li style="margin:6px 0"><b>寫下你的原則（選填）：</b>在「我的評審」頁可寫下你的家境評分原則，供委員會會議參考。</li>
     <li style="margin:6px 0">學生總表亦新增「家境分」一欄，方便瀏覽。</li>
    </ol>

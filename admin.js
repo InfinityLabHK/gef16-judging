@@ -10,7 +10,7 @@ const GROUPS=["語言","邏輯數學","人際關係","空間","音樂","身體�
 const AX={t:CORE,q:["高層次思維","創造力","個人及社交能力","堅毅","責任與承擔","仁愛與同理"],st:STK,e:ECR6};
 const FAM=[["t","才能"],["q","素質"],["st","STEAM"],["e","六個資優範疇"]];
 let D={},TAB="progress",F={show:"picked",sort:"raw",q:""};
-const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":1};let FF={show:"all",q:""};
+const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":0};let FF={show:"all",q:""};
 const finOf=d=>{const v=d&&d.override?d.override.finance:null;return v==null||v===""?null:Number(v);};
 const finOnly=d=>!d.tier&&!(d.reasons&&d.reasons.length)&&!d.note&&Object.keys(d.override||{}).every(k=>k.startsWith("finance"));
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove("show"),1800);}
@@ -123,7 +123,7 @@ function vFin(v,C){const {judges,byJ}=C;
  const nAdj=rows.filter(r=>r.adj).length,nDiv=rows.filter(r=>r.div).length;
  const cell=(x)=>x.m!=null?`<b>${x.m}</b>${x.why.length?` <span class="micro muted" title="${esc(x.why.join("；"))}">ⓘ</span>`:""}`:x.eff!=null?`<span class="muted">${x.eff}</span>`:'<span class="muted">—</span>';
  v.innerHTML=`<h1>家境分</h1>
- <div class="notebox small" style="margin-bottom:12px">預設分按學校勾選：綜援 5／書簿費全免 4／半免 3／無 1；未勾選列「待核」不推定。評審可自行調整（粗體＝已調整，灰色＝沿用預設，ⓘ＝有填理由）。平均＝各評審分數（含沿用預設）的平均；相差 2 分或以上標「分歧」。<b>此頁只供參考，不改變「匯總及委員會決定」的人次排名。</b></div>
+ <div class="notebox small" style="margin-bottom:12px">預設分按學校勾選：綜援 5／書簿費全免 4／半免 3／無資助 0（0–5 級，每級折合評分表 5 分）；未勾選列「待核」不推定。評審可自行調整（粗體＝已調整，灰色＝沿用預設，ⓘ＝有填理由）。平均＝各評審分數（含沿用預設）的平均；相差 2 分或以上標「分歧」。<b>此頁只供參考，不改變「匯總及委員會決定」的人次排名。</b></div>
  <div class="filters"><select id="ffShow">${[["all","全部 229 人"],["adj","只看有評審調整（"+nAdj+"）"],["div","只看分歧（"+nDiv+"）"],["pending","只看未勾選資助（待核）"],["hard","只看學校另填經濟困難"]].map(([k,l])=>`<option value="${k}" ${FF.show===k?"selected":""}>${l}</option>`).join("")}</select>
   <input id="ffQ" placeholder="編號／姓名／學校" value="${esc(FF.q)}" style="width:160px"><span class="small muted">${list.length} 人</span><span style="flex:1"></span><button class="btn sm" id="fcsv">匯出 CSV（家境分）</button></div>
  <div class="tscroll" style="max-height:calc(100vh - 340px)"><table class="t"><thead><tr><th>編號</th><th>姓名</th><th>學校</th><th>資助（學校勾選）</th><th>學校另填困難</th><th>預設</th>${judges.map(j=>`<th>${esc(j.display_name)}</th>`).join("")}<th>平均</th><th>已調整</th><th>標示</th></tr></thead><tbody>
