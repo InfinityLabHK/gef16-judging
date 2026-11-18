@@ -17,7 +17,7 @@ function finBoxHTML(s){const d=S.decisions[s.id]||{override:{}};const o=d.overri
  const eff=m!=null?m:df;const rs=o.finance_reasons||[];
  return `<div class="finhead"><span class="small"><b>家境分</b> <span class="muted">（評分表 25%，0–5 級）</span></span>
   <span class="finval">${eff!=null?eff:"—"}</span>${eff!=null?`<span class="micro muted">${finPts(eff)}</span>`:""}
-  ${m!=null?`<span class="chip fin-adj">已調整</span><span class="micro muted">預設 ${df!=null?df:"待核"}</span><button class="btn sm" data-fin-reset>還原預設</button>`:df!=null?`<span class="micro muted">預設 · 按學校勾選「${esc(sup)}」</span>`:`<span class="chip warn">待核</span><span class="micro muted">學校未勾選資助，請按表格內容自評</span>`}
+  ${m!=null?`<span class="chip fin-adj">已調整</span><span class="micro muted">預設 ${df!=null?df:"待核"}</span><button class="btn sm" data-fin-reset>還原預設</button>`:df!=null?`<span class="micro muted">預設 · 按學校勾選「${esc(sup==="無"?"無資助":sup)}」</span>`:`<span class="chip warn">待核</span><span class="micro muted">學校未勾選資助，請按表格內容自評</span>`}
   ${s.finance.other_hardship?'<span class="chip warn" title="見上方「其他經濟困難」原文">請留意：學校另填經濟困難</span>':""}</div>
  <div class="finseg" role="group" aria-label="我的家境分">${[0,1,2,3,4,5].map(n=>`<button data-fin="${n}" class="${eff===n?"on":""}${df===n&&m==null?" def":""}">${n}</button>`).join("")}</div>
  ${m!=null?`<div class="finwhy"><span class="micro muted">調整理由（選填）：</span>${FIN_REASONS.map(r=>`<button class="${rs.includes(r)?"on":""}" data-finr="${esc(r)}">${esc(r)}</button>`).join("")}<input class="finnote" id="finNote" maxlength="120" placeholder="其他理由（選填）" value="${esc(o.finance_note||"")}"></div>`:""}
