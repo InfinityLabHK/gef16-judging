@@ -48,12 +48,14 @@ async function start(){
     if((!sv&&meaningful)||(sv&&d.updatedAt&&sv.updatedAt&&new Date(d.updatedAt)>new Date(sv.updatedAt))){merged[id]=d;dirty.push(id);}}
   const st=(stRows||[])[0]||{};const prefs=st.prefs||{};
   window.GEF_SERVER={judge:prof.display_name,decisions:merged,order:(local&&local._orderDirty)?local.order:(st.priority_order||[]),calibration:st.calibration||{},seen:Object.assign({},st.seen||{},local&&local.seen||{}),
-    theme:prefs.theme||(local&&local.theme)||"light",fontLarge:!!prefs.fontLarge,showAI:!!prefs.showAI,showProfile:prefs.showProfile!==false};
+    theme:prefs.theme||(local&&local.theme)||"light",fontLarge:!!prefs.fontLarge,showAI:!!prefs.showAI,showProfile:prefs.showProfile!==false,
+    finPrinciple:prefs.finPrinciple||(local&&local.finPrinciple)||""};
   SYNC.init(server,st);dirty.forEach(id=>SYNC.markDirty(id));
   $("gate").classList.add("hidden");
   window.BOOT();
   if(LOCKED)banner("評審期已由管理員鎖定：你仍可閱讀，但改動不會儲存。");
-  if(dirty.length)SYNC.flush();
+  const finLocalOnly=window.GEF_SERVER.finPrinciple&&!prefs.finPrinciple;
+  if(dirty.length||finLocalOnly)SYNC.flush();
   const h=(location.hash||"").replace("#","");if(/^\d{3}$/.test(h)&&window.OPEN_CARD)window.OPEN_CARD(h);
 }
 function banner(t){let b=$("webBanner");if(!b){b=document.createElement("div");b.id="webBanner";b.className="webbanner";document.body.insertBefore(b,document.body.firstChild.nextSibling);}b.textContent=t;}
@@ -61,7 +63,7 @@ function banner(t){let b=$("webBanner");if(!b){b=document.createElement("div");b
 const SYNC=(function(){
   let synced={},stateSynced="",timer=null,busy=false,again=false,forced=new Set();
   const pack=d=>JSON.stringify([d.tier||null,d.reasons||[],d.override||{},d.note||""]);const EMPTY=pack({});
-  function stateOf(S){return JSON.stringify({o:S.order||[],c:S.calibration||{},s:S.seen||{},p:{theme:S.theme,fontLarge:!!S.fontLarge,showAI:!!S.showAI,showProfile:S.showProfile!==false}});}
+  function stateOf(S){return JSON.stringify({o:S.order||[],c:S.calibration||{},s:S.seen||{},p:Object.assign({theme:S.theme,fontLarge:!!S.fontLarge,showAI:!!S.showAI,showProfile:S.showProfile!==false},S.finPrinciple?{finPrinciple:S.finPrinciple}:{})});}
   function init(server,st){synced={};for(const [id,d] of Object.entries(server))synced[id]=pack(d);
     stateSynced=JSON.stringify({o:st.priority_order||[],c:st.calibration||{},s:st.seen||{},p:Object.assign({theme:"light",fontLarge:false,showAI:false,showProfile:true},st.prefs||{})});}
   function status(t,cls){const e=$("syncSt");if(e){e.textContent=t;e.className="syncst "+(cls||"");}}

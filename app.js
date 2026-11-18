@@ -5,6 +5,22 @@ const D=window.GEF,ST=D.students,META=D.meta,POOL=META.pool;
 const KEY=window.GEF_KEY||"gef16_review_v1";
 const ITEMS=[["potential","①潛能表現成績",15],["vision","②願景",10],["adversity","③處理逆境",10],["need","④發展需要",10],["recommendation","推薦人評語",30],["finance","經濟、家境和需要（暫定）",25]];
 const REASONS=["才華","願景","逆境","需要","推薦","家境"];
+/* 家境分（評分表 25%）：預設按學校勾選；評審可自行調整。預設分只顯示，不寫入任何紀錄。 */
+const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":1};
+const FIN_REASONS=["另有經濟困難證據","資助勾選與評語不符","個人專業判斷"];
+function finDefault(s){const k=s.finance.support||"未勾選";return Object.prototype.hasOwnProperty.call(FIN_BASE,k)?FIN_BASE[k]:null;}
+function finMine(s){const d=S.decisions[s.id];const v=d&&d.override?d.override.finance:null;return v==null||v===""?null:Number(v);}
+function finEff(s){const m=finMine(s);return m!=null?m:finDefault(s);}
+function finCell(s){const m=finMine(s),df=finDefault(s);if(m!=null)return `<b>${m}</b> <span class="chip fin-adj" title="預設 ${df??"待核"}">已調整</span>`;return df!=null?`<span class="muted">${df}</span>`:'<span class="chip warn">待核</span>';}
+function finBoxHTML(s){const d=S.decisions[s.id]||{override:{}};const o=d.override||{};const m=finMine(s),df=finDefault(s),sup=s.finance.support||"未勾選";
+ const eff=m!=null?m:df;const rs=o.finance_reasons||[];
+ return `<div class="finhead"><span class="small"><b>家境分</b> <span class="muted">（評分表 25%，1–5）</span></span>
+  <span class="finval">${eff!=null?eff:"—"}</span>
+  ${m!=null?`<span class="chip fin-adj">已調整</span><span class="micro muted">預設 ${df!=null?df:"待核"}</span><button class="btn sm" data-fin-reset>還原預設</button>`:df!=null?`<span class="micro muted">預設 · 按學校勾選「${esc(sup)}」</span>`:`<span class="chip warn">待核</span><span class="micro muted">學校未勾選資助，請按表格內容自評</span>`}
+  ${s.finance.other_hardship?'<span class="chip warn" title="見上方「其他經濟困難」原文">請留意：學校另填經濟困難</span>':""}</div>
+ <div class="finseg" role="group" aria-label="我的家境分">${[1,2,3,4,5].map(n=>`<button data-fin="${n}" class="${eff===n?"on":""}${df===n&&m==null?" def":""}">${n}</button>`).join("")}</div>
+ ${m!=null?`<div class="finwhy"><span class="micro muted">調整理由（選填）：</span>${FIN_REASONS.map(r=>`<button class="${rs.includes(r)?"on":""}" data-finr="${esc(r)}">${esc(r)}</button>`).join("")}<input class="finnote" id="finNote" maxlength="120" placeholder="其他理由（選填）" value="${esc(o.finance_note||"")}"></div>`:""}
+ <div class="micro muted" style="margin-top:4px">綜援 5／書簿費全免 4／半免 3／無資助但有具體可核困難 2／無 1。預設只是起點，按你的專業判斷調整即可。</div>`;}
 const TIERS={A:"優先入圍",B:"考慮",C:"暫不考慮"};
 const DOMS=["語言","邏輯數學","人際關係","空間","音樂","身體動覺","綜合學業","其他"];
 const GROUPS=["語言","邏輯數學","人際關係","空間","音樂","身體動覺","全面"];
@@ -62,7 +78,7 @@ function hash(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;ret
 
 /* ============ 狀態 ============ */
 let S=load();
-function load(){const base={judge:"",blind:false,showAI:false,showProfile:true,theme:"light",fontLarge:false,decisions:{},order:[],seen:{},calibration:{},tab:"guide",expandAI:{}};
+function load(){const base={judge:"",blind:false,showAI:false,showProfile:true,theme:"light",fontLarge:false,decisions:{},order:[],seen:{},calibration:{},tab:"guide",expandAI:{},finPrinciple:""};
  let j=null;try{j=JSON.parse(localStorage.getItem(KEY)||"null");}catch(e){}
  const o=Object.assign(base,j&&j.decisions?j:{});if(window.GEF_SERVER)Object.assign(o,window.GEF_SERVER);o.blind=false;Object.values(o.decisions||{}).forEach(d=>{if(d)d.blindAtDecision=false;});return o;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}if(window.GEF_SYNC)window.GEF_SYNC();}
@@ -178,7 +194,7 @@ function renderGuide(v){
    <li>${window.GEF_WEB?"你已用個人帳號登入。所有分層、籃子、理由、備註<b>自動儲存到伺服器</b>；電腦和手機用同一帳號會同步。":"在右上「設定」填評審代號（Scarlett 會告訴你）。所有操作自動保存在你這部裝置的瀏覽器內。"}</li>
    <li>先做下方的<b>校準</b>：自己先評 ${META.calibration_ids.length||5} 份，再揭曉 AI 分，看看彼此差距。</li>
    <li>到「學生總表」逐位打開卡片，<b>先讀自薦文章和推薦評語</b>，再看雷達、成長軌跡及獎項明細；AI 建議分預設摺疊，讀完才展開。</li>
-   <li>每看完一位，在卡片底部點分層：<b>優先入圍／考慮／暫不考慮</b>，並勾選打動你的理由。</li>
+   <li>每看完一位，在卡片底部點分層：<b>優先入圍／考慮／暫不考慮</b>，並勾選打動你的理由。卡片頂部的<b>家境分</b>已按學校勾選給出預設（綜援 5／全免 4／半免 3／無 1），你可按專業判斷直接調整，並可在「我的評審」寫下你的家境評分原則。</li>
    <li>到「我的評審」整理優先入圍名單；匯出前看一眼「我的名單輪廓」，${window.GEF_WEB?"確認名單即可，結果已自動儲存（「下載備份」只作個人備份）。":"最後按<b>匯出我的評審結果</b>，把檔案傳回 Scarlett。"}</li>
   </ol></div>
   <div class="panel"><h3 style="margin-bottom:8px">幾個原則</h3>
@@ -282,15 +298,15 @@ function renderTable(v){
  </div>
  <p class="micro muted" style="margin:-4px 0 8px">◉ ${S4}</p>
  <div class="tscroll dtable" style="max-height:calc(100vh - 260px)"><table class="t"><thead><tr>
-  ${th("id","編號")}<th>相片</th><th>姓名</th>${th("school","學校")}<th>年級</th><th>提名組別</th><th>資助</th><th data-tip="值得多看一眼">◉</th><th>標示</th>${th("tier","放入籃子","優先入圍／考慮；再按一下移出")}${ai?`${th("total","AI 分數段")}<th>六細項</th>`:""}${th("best5","最佳五項","計入獎項最高 5 項相加")}${th("tot","全部合計","計入獎項全部相加")}${th("chars","文章字數")}
+  ${th("id","編號")}<th>相片</th><th>姓名</th>${th("school","學校")}<th>年級</th><th>提名組別</th><th>資助</th><th data-tip="你的家境分（預設按學校勾選；已調整者標示）">家境分</th><th data-tip="值得多看一眼">◉</th><th>標示</th>${th("tier","放入籃子","優先入圍／考慮；再按一下移出")}${ai?`${th("total","AI 分數段")}<th>六細項</th>`:""}${th("best5","最佳五項","計入獎項最高 5 項相加")}${th("tot","全部合計","計入獎項全部相加")}${th("chars","文章字數")}
  </tr></thead><tbody>${rows.map(s=>`<tr data-open="${s.id}" class="${dec(s.id).tier?"in"+dec(s.id).tier:""}" style="cursor:pointer">
   <td class="mono">${S.seen[s.id]?"·":""}${s.id}</td><td>${photoThumb(s)}</td><td>${esc(s.student.name)}<div class="micro muted">${esc(s.student.name_en||"")}</div></td><td>${esc(s.student.school)}${STY(s)?`<div class="micro muted">${esc(STY(s))}</div>`:""}</td><td>${esc(s.student.grade_norm||s.student.grade)}</td>
-  <td>${s.nomination.groups.map(domChip).join("")||'<span class="chip plain">未勾選</span>'}</td><td style="white-space:nowrap">${supDot(s.finance.support)}</td>
+  <td>${s.nomination.groups.map(domChip).join("")||'<span class="chip plain">未勾選</span>'}</td><td style="white-space:nowrap">${supDot(s.finance.support)}</td><td style="white-space:nowrap">${finCell(s)}</td>
   <td>${s.watch.length?`<span class="chip watch" data-tip="${esc(s.watch.map(w=>"◉ "+w.label).join("\n"))}">◉ ${s.watch.length}</span>`:""}</td>
   <td>${flagsOf(s).filter(ATTN).map(flagChip).join("")}</td><td style="white-space:nowrap">${bkBtns(s.id)}</td>
   ${ai?`<td>${hasAI(s)?`<span class="band">${s.ai.band}</span> ${s.ai.total}`:"待評分"}</td><td class="mono small">${hasAI(s)?ITEMS.map(([k])=>s.ai.final[k].level??"—").join("·"):"—"}</td>`:""}
   <td class="num mono">${s.derived.best5}</td><td class="num mono">${s.derived.total}</td><td class="num mono">${s.essay.lang==="en"?s.essay.words+"（英）":s.essay.chars}</td></tr>`).join("")}</tbody></table></div>
- <div class="mrows">${rows.map(s=>`<div class="mrow ${dec(s.id).tier?"in"+dec(s.id).tier:""}" data-open="${s.id}"><div class="r1">${photoThumb(s,40,50)}<div><b>${esc(s.student.name)}</b> <span class="mono small muted">${s.id}</span> <span class="small">${esc(s.student.grade_norm||"")}</span><div class="micro muted">${esc(s.student.school)}</div></div></div><div style="margin-top:6px">${s.nomination.groups.map(domChip).join("")||'<span class="chip plain">未勾選</span>'}${s.watch.length?`<span class="chip watch">◉ ${s.watch.length}</span>`:""}</div><div class="small" style="margin-top:4px">${supDot(s.finance.support)} · 最佳五項 <b>${s.derived.best5}</b>／全部 ${s.derived.total} · 字數 ${s.essay.lang==="en"?s.essay.words:s.essay.chars}</div><div style="margin-top:8px">${bkBtns(s.id)}</div></div>`).join("")}</div>`;
+ <div class="mrows">${rows.map(s=>`<div class="mrow ${dec(s.id).tier?"in"+dec(s.id).tier:""}" data-open="${s.id}"><div class="r1">${photoThumb(s,40,50)}<div><b>${esc(s.student.name)}</b> <span class="mono small muted">${s.id}</span> <span class="small">${esc(s.student.grade_norm||"")}</span><div class="micro muted">${esc(s.student.school)}</div></div></div><div style="margin-top:6px">${s.nomination.groups.map(domChip).join("")||'<span class="chip plain">未勾選</span>'}${s.watch.length?`<span class="chip watch">◉ ${s.watch.length}</span>`:""}</div><div class="small" style="margin-top:4px">${supDot(s.finance.support)} · 家境分 ${finCell(s)} · 最佳五項 <b>${s.derived.best5}</b>／全部 ${s.derived.total} · 字數 ${s.essay.lang==="en"?s.essay.words:s.essay.chars}</div><div style="margin-top:8px">${bkBtns(s.id)}</div></div>`).join("")}</div>`;
  const re=()=>renderTable(v);
  v.querySelector("#fG").onchange=e=>{TF.g=e.target.value;re();};v.querySelector("#fS").onchange=e=>{TF.sup=e.target.value;re();};v.querySelector("#fY").onchange=e=>{TF.grade=e.target.value;re();};v.querySelector("#fT").onchange=e=>{TF.tier=e.target.value;re();};v.querySelector("#fF").onchange=e=>{TF.flag=e.target.value;re();};v.querySelector("#fW").onchange=e=>{TF.w=e.target.value;re();};
  v.querySelector("#fQ").oninput=e=>{TF.q=e.target.value.trim();re();const q=v.querySelector("#fQ");q.focus();q.setSelectionRange(q.value.length,q.value.length);};
@@ -324,6 +340,7 @@ function openCard(id,keepScroll){const prevScroll=keepScroll?document.getElement
    <div class="hline">${esc(s.student.school)} ${STY(s)?`<span class="small muted">${esc(STY(s))}</span>`:""} · ${esc(s.student.grade_norm||s.student.grade)} · ${esc(s.student.district||"地區未填")} · 出生 ${esc(s.student.birth_year||"—")}</div>
    <div class="hline">${s.nomination.groups.map(domChip).join("")||'<span class="chip" style="--c:var(--d8)">未勾選</span>'}<span class="small">提名人：${esc(nomName(s))}（${esc(nomRole(s))}）${nm&&/□/.test(nm)?' <span class="chip warn">! 待核</span>':""}</span><span class="small muted">其他獎學金：${esc(s.nomination.other_scholarship||"—")}</span></div>
    <div class="hline small">${supDot(s.finance.support)}${(s.finance.support||"未勾選")==="未勾選"?' <span class="chip warn">! 待核</span>':""}${s.xlsx.support_match===false?' <span class="chip warn">! 與評分表不符</span>':""}${s.finance.other_hardship?` <span class="muted">其他經濟困難：${esc(s.finance.other_hardship)}</span>`:""}<span class="micro muted">簽署 ${sig}</span></div>
+   <div class="finbox" id="finBox">${finBoxHTML(s)}</div>
    ${s.watch.length?`<div class="hline" id="wChips">${watchChips(s)}</div><div id="wBox"></div>`:""}
    <div class="sub small" style="margin-top:8px">${hasAI(s)&&(s.ai.summary||[]).length?(s.ai.summary||[]).map(l=>`<div>· ${esc(l)}</div>`).join(""):'<span class="muted">三行摘要待評分層補入。</span>'}</div>
   </div>
@@ -368,7 +385,7 @@ function openCard(id,keepScroll){const prevScroll=keepScroll?document.getElement
  <section class="sec noprint-card" id="sec-review"><div class="panel"><h2 style="margin-top:0">我的評審</h2>
   <div class="tierbtns">${Object.entries(TIERS).map(([k,l])=>`<button class="${k} ${d.tier===k?"on":""}" data-tier="${k}">${l}</button>`).join("")}</div>
   <div class="small muted" style="margin-top:8px">打動我的是（可多選）：</div><div class="reasons">${REASONS.map(r=>`<button class="${d.reasons.includes(r)?"on":""}" data-r="${r}">${r}</button>`).join("")}</div>
-  <details class="box" style="margin-top:12px"><summary class="small">調整三大準則評分（可選）</summary><div class="body"><div class="small muted">留空即接受 AI 建議；填寫即以你的級別為準（1–5）。</div>${ITEMS.map(([k,l])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span class="small">${l}</span><select data-ov="${k}"><option value="">AI ${hasAI(s)?(s.ai.final[k].level??"—"):"—"}</option>${[1,2,3,4,5].map(n=>`<option ${d.override[k]==n?"selected":""}>${n}</option>`).join("")}</select></div>`).join("")}</div></details>
+  <details class="box" style="margin-top:12px"><summary class="small">調整三大準則評分（可選）</summary><div class="body"><div class="small muted">留空即接受 AI 建議；填寫即以你的級別為準（1–5）。</div>${ITEMS.map(([k,l])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span class="small">${l}</span><select data-ov="${k}"><option value="">${k==="finance"?`預設 ${finDefault(s)??"待核"}`:`AI ${hasAI(s)?(s.ai.final[k].level??"—"):"—"}`}</option>${[1,2,3,4,5].map(n=>`<option ${d.override[k]==n?"selected":""}>${n}</option>`).join("")}</select></div>`).join("")}</div></details>
   <div class="small muted" style="margin:8px 0 4px">備註（只有你看到，會隨結果匯出）</div><textarea class="note" id="cNote">${esc(d.note)}</textarea>
   <div class="small muted" id="cStat" style="margin-top:6px">${statTxt(d)}</div></div></section>
  </div>
@@ -382,9 +399,21 @@ function openCard(id,keepScroll){const prevScroll=keepScroll?document.getElement
  sh.querySelectorAll("[data-v]").forEach(c=>c.onclick=()=>{const box=$("#vBox");const k=c.dataset.v;if(box.dataset.k===k){box.innerHTML="";box.dataset.k="";return;}box.dataset.k=k;const x=s.cls.values[k]||{};box.innerHTML=`<div class="sub small" style="margin-top:8px"><b>${esc(k)}</b>${(x.quotes||[]).map(q=>`<div class="q">${esc(q.q)}<span class="p">第 ${q.p} 頁 · ${q.src==="rec"?"評語":"文章"}</span></div>`).join("")}</div>`;});
  sh.querySelectorAll("[data-tier]").forEach(b=>b.onclick=()=>{setTier(id,b.dataset.tier);const dd=dec(id);sh.querySelectorAll("[data-tier]").forEach(x=>x.classList.toggle("on",x.dataset.tier===dd.tier));$("#cStat").textContent=statTxt(dd);syncHeader();toast(dd.tier?`已標「${TIERS[dd.tier]}」`:"已取消分層");});
  sh.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{const dd=dec(id);const r=b.dataset.r;dd.reasons=dd.reasons.includes(r)?dd.reasons.filter(x=>x!==r):[...dd.reasons,r];touch(id);b.classList.toggle("on");});
- sh.querySelectorAll("[data-ov]").forEach(sel=>sel.onchange=()=>{const dd=dec(id);if(sel.value==="")delete dd.override[sel.dataset.ov];else dd.override[sel.dataset.ov]=Number(sel.value);touch(id);});
+ sh.querySelectorAll("[data-ov]").forEach(sel=>sel.onchange=()=>{const k=sel.dataset.ov;if(k==="finance"){setFin(id,sel.value===""?null:Number(sel.value));return;}const dd=dec(id);if(sel.value==="")delete dd.override[k];else dd.override[k]=Number(sel.value);touch(id);});
+ bindFin(sh,id);
  $("#cNote").onchange=e=>{dec(id).note=e.target.value;touch(id);};
  const ab=$("#aiBox");if(ab)ab.addEventListener("toggle",()=>{if(ab.open)S.expandAI[id]=true;else delete S.expandAI[id];save();});}
+function setFin(id,v){const s=byId[id];const df=finDefault(s);const cur=S.decisions[id]&&S.decisions[id].override?S.decisions[id].override.finance:null;const had=cur!=null&&cur!=="";
+ if(v==null||v===df){if(!had)return;const dd=dec(id);delete dd.override.finance;delete dd.override.finance_reasons;delete dd.override.finance_note;toast("家境分已還原預設");}
+ else{if(had&&Number(cur)===v)return;dec(id).override.finance=v;toast(`家境分：${v}（預設 ${df??"待核"}）`);}
+ touch(id);refreshFin(id);}
+function refreshFin(id){const sh=document.getElementById("sheet");if(!sh)return;const box=sh.querySelector("#finBox");if(box){box.innerHTML=finBoxHTML(byId[id]);bindFin(sh,id);}
+ const sel=sh.querySelector('[data-ov="finance"]');if(sel){const m=finMine(byId[id]);sel.value=m==null?"":String(m);}}
+function bindFin(sh,id){const box=sh.querySelector("#finBox");if(!box)return;
+ box.querySelectorAll("[data-fin]").forEach(b=>b.onclick=()=>setFin(id,Number(b.dataset.fin)));
+ const rs=box.querySelector("[data-fin-reset]");if(rs)rs.onclick=()=>setFin(id,null);
+ box.querySelectorAll("[data-finr]").forEach(b=>b.onclick=()=>{const dd=dec(id);if(dd.override.finance==null)return;const r=b.dataset.finr;const a=dd.override.finance_reasons||[];dd.override.finance_reasons=a.includes(r)?a.filter(x=>x!==r):[...a,r];if(!dd.override.finance_reasons.length)delete dd.override.finance_reasons;touch(id);b.classList.toggle("on");});
+ const nt=box.querySelector("#finNote");if(nt)nt.onchange=e=>{const dd=dec(id);if(dd.override.finance==null)return;const t=e.target.value.trim();if(t)dd.override.finance_note=t;else delete dd.override.finance_note;touch(id);};}
 function statTxt(d){return d.tier?`已分層：${TIERS[d.tier]} · ${new Date(d.updatedAt).toLocaleString("zh-HK",{hour12:false})}`:"尚未分層";}
 window.addEventListener("afterprint",()=>document.body.classList.remove("print-card"));
 function aiBox(s,open){const a=s.ai;return `<details class="box" id="aiBox" ${open?"open":""}><summary>AI 建議分（預設摺疊，請讀完文章再展開）</summary><div class="body">
@@ -445,6 +474,7 @@ function renderReview(v){
  const B=selIds("B"),C=ST.filter(s=>dec(s.id).tier==="C").map(s=>s.id),Nn=ST.filter(s=>!dec(s.id).tier).map(s=>s.id);
  v.innerHTML=`<div class="rtool"><h1>我的評審</h1><span class="small muted">已分層 ${ST.length-Nn.length}／${ST.length}</span><span style="flex:1"></span><button class="btn primary" id="exp">${window.GEF_WEB?"下載備份":"匯出我的評審結果"}</button><label class="btn">匯入<input type="file" id="imp" accept="application/json" style="display:none"></label>${window.GEF_WEB?"":'<button class="btn" id="clr">清除</button>'}<label class="btn sm"><input type="checkbox" id="profTg" ${S.showProfile?"checked":""}> 顯示名單輪廓及畫像</label></div>
  <div id="clrBox"></div>
+ <div class="panel finprin" style="margin-bottom:16px"><h3 style="margin-bottom:4px">我的家境評分原則</h3><p class="micro muted" style="margin-bottom:6px">寫一次即可，自動儲存；只有你和管理員看到，供委員會會議參考。例如：「學校勾選為主；評語提及單親或失業者，我會加 1 分。」</p><textarea class="note" id="finPrin" maxlength="600" placeholder="（選填）">${esc(S.finPrinciple||"")}</textarea></div>
  <div class="grid g3">
   <div class="panel"><h3>優先入圍（${A.length}）</h3><p class="micro muted">章程約 25 名；每位評審的優先名單一般 35–45 人，純屬規模參考</p><div class="list" id="listA">${A.map(id=>itemHTML(id,true)).join("")||'<p class="small muted">尚未放入。可在學生總表每行按「☆ 優先」。</p>'}</div></div>
   <div class="panel"><h3>考慮（${B.length}）</h3><div class="list">${B.map(id=>itemHTML(id,false)).join("")||'<p class="small muted">尚無</p>'}</div></div>
@@ -455,6 +485,7 @@ function renderReview(v){
  <p class="small muted" style="margin-top:8px">${S.judge?"":"請先在右上「設定」填評審代號，才能匯出。"}優先入圍可拖放排序（電腦），手機請用 ▲▼；次序只作參考，匯總時主要計被選人次。</p>`;
  v.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openCard(b.dataset.open));
  v.querySelector("#profTg").onchange=e=>{S.showProfile=e.target.checked;save();renderReview(v);};
+ v.querySelector("#finPrin").onchange=e=>{S.finPrinciple=e.target.value.trim();save();toast("已儲存家境評分原則");};
  bindSel(v,()=>renderReview(v));bindOrder(v,()=>renderReview(v));
  v.querySelector("#exp").onclick=()=>{if(!S.judge){toast("請先在設定填評審代號");openSettings();return;}
   const decisions=Object.fromEntries(ST.map(s=>{const d=Object.assign({},dec(s.id));d.blindAtDecision=false;return [s.id,d];}));
@@ -540,7 +571,7 @@ function renderMethod(v){
  ["m2","二、計分",`<div class="tscroll"><table class="t"><thead><tr><th>準則</th><th>細項</th><th>權重</th><th>主要證據來源</th></tr></thead><tbody><tr><td rowspan="4">潛能和表述 45%</td><td>①潛能、表現、成績</td><td>15</td><td>獎項表（每項層級×名次＝整數分；最佳五項為參考指數）、活動表、文章</td></tr><tr><td>②願景</td><td>10</td><td>文章</td></tr><tr><td>③處理逆境</td><td>10</td><td>文章（只看行動與反思）</td></tr><tr><td>④發展需要</td><td>10</td><td>文章（獎學金用途）</td></tr><tr><td>推薦人評語 30%</td><td>學校推薦</td><td>30</td><td>第 (二) 部分評語（只看具體事例）</td></tr><tr><td>經濟、家境和需要 25%</td><td>暫定規則</td><td>25</td><td>資助勾選、其他經濟困難、文章及評語中的家境證據</td></tr></tbody></table></div><p class="small muted" style="margin-top:8px">加權總分 = Σ（級別 ÷ 5 × 權重）。分數段：高 ≥80、中高 70–79、中 60–69、待商 &lt;60。細項分配 15／10／10／10 暫定，待委員會確認。章程準則 2「待人處事態度、對家庭及社會的承擔」作為願景及逆境的證據面向，不另設分。</p>`],
  ["m3","三、評分錨點",anchorsHTML()],
  ["m3b","三之二、儀表板計法",`<p>· 才能雷達六軸：語言、邏輯數學、人際關係、空間、音樂、身體動覺（基金章程提名組別，「全面才能組」不設軸），每軸指數＝該範疇計入獎項的分數和；≥60→5、≥30→4、≥12→3、≥3→2、有紀錄→1。</p><p>· 素質雷達六軸：高層次思維、創造力、個人及社交能力（教育局資優教育三大元素）；堅毅、責任與承擔、仁愛與同理（《小學教育課程指引》2024 首要價值觀）；每軸 0–5 為具體事例的強度，附引句及頁碼。</p><p>· STEAM 雷達按賽事及活動名稱歸類；六個資優範疇雷達按${ECR_TITLE}歸類；兩者同樣以計入分數和換算 0–5 級。</p><p>· 資優三環（Renzulli, 1978）：能力＝最佳五項支持級別、創造力＝素質軸、工作熱忱＝堅毅軸與持續年數。</p><p>· 全部描述性，不進入 45／30／25 計分。</p>`],
- ["m4","四、暫定項目",`<p>· 經濟分級：綜援 5 ／ 書簿費全免 4 ／ 半免 3 ／ 無資助但有可核困難 2 ／ 無 1；有資助且另有具體困難 +1，上限 5。</p><p>· 獎項層級：國際 5 ／ 全國 4 ／ 全港 3 ／ 地區學界機構 2 ／ 校內 1；商業收費競賽最高 2；考級不計。</p><p>· ${esc(META.index_rule)}</p><p>· 校際音樂節／朗誦節：冠亞季 10／8／6、優良 3、良好 1；藝術類按分數段頒發的金／銀 3、銅 1。</p><p>· 文書核對：獎項表內容完全相同者視為疑重複填寫，只計一次，不自動扣分。</p><p>· 同校提名超過兩名（章程上限）只標示不處理。</p>`],
+ ["m4","四、暫定項目",`<p>· 經濟分級：綜援 5 ／ 書簿費全免 4 ／ 半免 3 ／ 無資助但有可核困難 2 ／ 無 1；有資助且另有具體困難 +1，上限 5。</p><p>· 家境分（平台做法）：卡片預設分只按學校勾選（綜援 5／全免 4／半免 3／無 1；未勾選列「待核」，不推定）；學校另填「其他經濟困難」者標「請留意」，不自動加分。每位評審可按專業判斷調整並選填理由，亦可寫下個人評分原則；後台並列預設分、各評審分數及分歧，供委員會參考，不改變入圍人次的匯總。</p><p>· 獎項層級：國際 5 ／ 全國 4 ／ 全港 3 ／ 地區學界機構 2 ／ 校內 1；商業收費競賽最高 2；考級不計。</p><p>· ${esc(META.index_rule)}</p><p>· 校際音樂節／朗誦節：冠亞季 10／8／6、優良 3、良好 1；藝術類按分數段頒發的金／銀 3、銅 1。</p><p>· 文書核對：獎項表內容完全相同者視為疑重複填寫，只計一次，不自動扣分。</p><p>· 同校提名超過兩名（章程上限）只標示不處理。</p>`],
  ["m5","五、對照框架及出處",`<ul class="src"><li><b>${ECR_TITLE}</b>：§4.3.2；全文見第六節。</li><li><b>資優教育三大元素</b>：高層次思維技巧、創造力、個人及社交能力。<a href="https://www.edb.gov.hk/tc/curriculum-development/curriculum-area/gifted/index.html" target="_blank" rel="noopener">教育局資優教育網頁</a>。</li><li><b>三層架構推行模式</b>：第三層「在校外為特別資優學生，提供特定的專門訓練學習機會」；「閃耀之星」屬校外培育，定位呼應第三層，官方未點名任何機構。</li><li><b>多元智能</b>：教育局原則「資優的定義應擴闊，並採用多元智能的概念」；基金章程七個提名組別即此概念。</li><li><b>首要培育的價值觀和態度（十二個）</b>：《小學教育課程指引》（2024）。<a href="https://edb.gov.hk/attachment/tc/curriculum-development/major-level-of-edu/primary/curriculum-documents/Primary_Education_Curriculum_Guide/PECG%202024_ch1.pdf" target="_blank" rel="noopener">PDF</a>。</li><li><b>資優教育基金（Gifted Education Foundation）</b>：「閃耀之星」資助「在不同範疇有卓越表現或另類才華而家庭資源貧乏的資優兒童」。<a href="https://gef.org.hk/" target="_blank" rel="noopener">gef.org.hk</a>。</li><li><b>章程評審準則</b>：卓越表現及潛質；待人處事的態度，對家庭及社會的承擔；就讀學校的推薦；學生的家境狀況。小四至小六；每校最多提名兩名；名額約 25。</li><li><b>資優三環概念</b>：Renzulli, J. S. (1978). What makes giftedness? <i>Phi Delta Kappan</i>, 60(3), 180–184.</li><li>注意：教育局 2016 年另設「資優教育基金」（Gifted Education <i>Fund</i>），與本基金不是同一機構。</li></ul>`],
  ["m6","六、六個資優範疇全文",`<h3>${ECR_TITLE}</h3>${ecrList()}`],
  ["m7","七、為何提供分布提示、為何不設配額",`<p>在『我的評審』頁，你會看到一個『我的名單輪廓』。放這面鏡子，是因為 229 份申請表逐份讀完，人很難記得自己選了多少個同一類型的學生；就像課室裡老師點名回答問題，不是誰答得不好，而是視線自然落在某些角落。輪廓只把你自己名單的形狀放在全體申請人旁邊給你看，沒有目標線，沒有建議人數。基金章程沒有任何配額，宗旨是資助在不同範疇有卓越表現或另類才華而家庭資源貧乏的學生；看見之後是否調整，完全由每位評審按專業判斷決定。同一道理，『值得多看一眼』標籤只是把資料裡容易被略過的事實標出來，不加分、不排序，最後入圍名單由委員會決定。</p>`],

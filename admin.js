@@ -10,6 +10,9 @@ const GROUPS=["語言","邏輯數學","人際關係","空間","音樂","身體�
 const AX={t:CORE,q:["高層次思維","創造力","個人及社交能力","堅毅","責任與承擔","仁愛與同理"],st:STK,e:ECR6};
 const FAM=[["t","才能"],["q","素質"],["st","STEAM"],["e","六個資優範疇"]];
 let D={},TAB="progress",F={show:"picked",sort:"raw",q:""};
+const FIN_BASE={"綜援":5,"書簿費全免":4,"書簿費半免":3,"無":1};let FF={show:"all",q:""};
+const finOf=d=>{const v=d&&d.override?d.override.finance:null;return v==null||v===""?null:Number(v);};
+const finOnly=d=>!d.tier&&!(d.reasons&&d.reasons.length)&&!d.note&&Object.keys(d.override||{}).every(k=>k.startsWith("finance"));
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove("show"),1800);}
 function gate(msg){$("gate").classList.remove("hidden");$("gate").innerHTML=`<div class="gate-card"><div class="brand" style="font-size:18px">閃耀之星第十六屆初選 · 後台</div><div class="small muted" style="margin:4px 0 20px">只限管理員</div>
  <label class="small">帳號<input id="gU" autocomplete="username" autocapitalize="none"></label><label class="small">密碼<input id="gP" type="password" autocomplete="current-password"></label>
@@ -17,12 +20,12 @@ function gate(msg){$("gate").classList.remove("hidden");$("gate").innerHTML=`<di
  const go=async()=>{try{$("gGo").disabled=true;await API.login($("gU").value.trim(),$("gP").value);await start();}catch(e){if(!$("gGo"))return gate(e.message);$("gGo").disabled=false;$("gMsg").textContent=/Invalid login|invalid_grant|400/.test(e.message)?"帳號或密碼不正確":e.message;}};
  $("gGo").onclick=go;$("gP").onkeydown=e=>{if(e.key==="Enter")go();};}
 function poolRow(s){const c=s.cls||{};const q=c.qualities||{};const sex=s.student.sex==="女"||s.student.sex==="男"?s.student.sex:"—";
- return {id:s.id,name:s.student.name,school:s.student.school,groups:s.nomination.groups||[],top_talent:s.student.top_talent,ecr6_has:s.ecr6_has||[],sex,support:s.finance.support||"未勾選",grade_norm:s.student.grade_norm,school_type:s.student.school_type,best5:s.derived.best5,watch_n:(s.watch||[]).length,
+ return {id:s.id,name:s.student.name,school:s.student.school,groups:s.nomination.groups||[],top_talent:s.student.top_talent,ecr6_has:s.ecr6_has||[],sex,support:s.finance.support||"未勾選",grade_norm:s.student.grade_norm,school_type:s.student.school_type,best5:s.derived.best5,watch_n:(s.watch||[]).length,fin_default:Object.prototype.hasOwnProperty.call(FIN_BASE,s.finance.support||"未勾選")?FIN_BASE[s.finance.support||"未勾選"]:null,hardship:s.finance.other_hardship||"",
   lv:{t:CORE.map(k=>((c.talent||{})[k]||{}).level||0),q:QK.map(k=>(q[k]||{}).level||0),st:STK.map(k=>((c.steam||{})[k]||{}).level||0),e:ECR6.map(k=>((c.ecr6||{})[k]||{}).level||0)}};}
 async function load(){
- const [profiles,studs,decs,com,set,meta,audit]=await Promise.all([API.selectAll("profiles","select=*&order=username.asc"),API.selectAll("students","select=id,data&order=id.asc"),API.selectAll("decisions","select=*"),API.selectAll("committee","select=*"),API.req("settings?select=*"),API.selectAll("meta","select=key,value"),API.req("audit_log?select=*&order=at.desc&limit=300")]);
+ const [profiles,studs,decs,com,set,meta,audit,jstate]=await Promise.all([API.selectAll("profiles","select=*&order=username.asc"),API.selectAll("students","select=id,data&order=id.asc"),API.selectAll("decisions","select=*"),API.selectAll("committee","select=*"),API.req("settings?select=*"),API.selectAll("meta","select=key,value"),API.req("audit_log?select=*&order=at.desc&limit=300"),API.selectAll("judge_state","select=user_id,prefs").catch(()=>[])]);
  const M=Object.fromEntries(meta.map(r=>[r.key,r.value]));
- D={me:D.me,profiles,students:studs.map(r=>poolRow(r.data)),decs,com:Object.fromEntries(com.map(r=>[r.student_id,r])),settings:(set||[])[0]||{},meta:M.meta||{},audit:audit||[],loadedAt:new Date()};}
+ D={me:D.me,profiles,students:studs.map(r=>poolRow(r.data)),decs,com:Object.fromEntries(com.map(r=>[r.student_id,r])),settings:(set||[])[0]||{},meta:M.meta||{},audit:audit||[],jstate:Object.fromEntries((jstate||[]).map(r=>[r.user_id,r.prefs||{}])),loadedAt:new Date()};}
 async function start(){
  const s=API.session();const me=(await API.req(`profiles?select=*&user_id=eq.${s.user.id}`)||[])[0];
  if(!me||me.role!=="admin"||!me.active){$("gate").innerHTML=`<div class="gate-card"><p>此帳號沒有後台權限。</p><p style="margin-top:12px"><a class="btn" href="index.html">回到評審頁</a> <button class="btn" id="lo">登出</button></p></div>`;$("lo").onclick=()=>{API.logout();location.reload();};return;}
@@ -30,7 +33,7 @@ async function start(){
  await load();$("gate").classList.add("hidden");render();}
 /* ---------- 計算 ---------- */
 function compute(){
- const judges=D.profiles.filter(p=>p.active&&(p.role==="judge"||D.decs.some(d=>d.user_id===p.user_id)));
+ const judges=D.profiles.filter(p=>p.active&&(p.role==="judge"||D.decs.some(d=>d.user_id===p.user_id&&!finOnly(d))));
  const byJ={};judges.forEach(j=>byJ[j.user_id]={});D.decs.forEach(d=>{if(byJ[d.user_id])byJ[d.user_id][d.student_id]=d;});
  const Acount={};judges.forEach(j=>Acount[j.user_id]=Object.values(byJ[j.user_id]).filter(d=>d.tier==="A").length);
  const rows=D.students.map(s=>{const per=judges.map(j=>byJ[j.user_id][s.id]||{});let raw=0,eq=0,a=0,b=0,c=0;const reasons={};
@@ -41,10 +44,10 @@ function compute(){
  return {judges,byJ,Acount,rows};}
 /* ---------- 版面 ---------- */
 function render(){const v=$("view");
- $("tabs").innerHTML=[["progress","進度及權重"],["sum","匯總及委員會決定"],["portrait","名單畫像"],["audit","操作紀錄"],["settings","鎖定及匯出"]].map(([k,l])=>`<button class="${TAB===k?"on":""}" data-t="${k}">${l}</button>`).join("");
+ $("tabs").innerHTML=[["progress","進度及權重"],["sum","匯總及委員會決定"],["fin","家境分"],["portrait","名單畫像"],["audit","操作紀錄"],["settings","鎖定及匯出"]].map(([k,l])=>`<button class="${TAB===k?"on":""}" data-t="${k}">${l}</button>`).join("");
  $("tabs").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render();});
  $("who").textContent=`${D.me.display_name}（${D.me.username}）· 資料時間 ${D.loadedAt.toLocaleTimeString("zh-HK",{hour12:false})}`;
- const C=compute();({progress:vProgress,sum:vSum,portrait:vPortrait,audit:vAudit,settings:vSettings})[TAB](v,C);}
+ const C=compute();({progress:vProgress,sum:vSum,fin:vFin,portrait:vPortrait,audit:vAudit,settings:vSettings})[TAB](v,C);}
 function vProgress(v,C){const N=D.students.length;
  v.innerHTML=`<h1>進度及權重</h1><p class="lead">評分權重預設 1；由鄭校長決定是否調整。權重只影響後台匯總，不影響評審看到的報告。${D.settings.locked?' <span class="chip bad">評審已鎖定</span>':""}</p>
  <div class="tscroll"><table class="t"><thead><tr><th>帳號</th><th>名稱</th><th>角色</th><th>啟用</th><th>評分權重</th><th>已分層</th><th>優先</th><th>考慮</th><th>暫不</th><th>最後活動</th></tr></thead><tbody>
@@ -110,8 +113,32 @@ function vPortrait(v,C){const {judges,rows}=C;const P=D.students;const half=Math
   ${["女","男"].map(k=>{const f=L=>`${cntBy(L,s=>s.sex)[k]||0}／${L.length}（${pct(cntBy(L,s=>s.sex)[k]||0,L.length)}%）`;return `<tr><td>性別 · ${k}</td><td>${LC.sex[k]}／${LC.n}（${pct(LC.sex[k],LC.n)}%）</td><td>${f(Lh)}</td><td>${f(Lc)}</td><td>${f(P)}</td></tr>`;}).join("")}
   ${[["資助","資助"],["官立","官立"],["私立／直資",null]].map(([k,mk])=>{const f=L=>{const n=mk?(cntBy(L,s=>s.school_type)[mk]||0):((cntBy(L,s=>s.school_type)["私立"]||0)+(cntBy(L,s=>s.school_type)["直資"]||0));return `${n}／${L.length}（${pct(n,L.length)}%）`;};return `<tr><td>學校類型 · ${k}</td><td>${LC.school_type[k]}／${LC.n}（${pct(LC.school_type[k],LC.n)}%）</td><td>${f(Lh)}</td><td>${f(Lc)}</td><td>${f(P)}</td></tr>`;}).join("")}
  </tbody></table></div><p class="micro muted" style="margin-top:6px">上屆才華領域（小冊子原分類，不作對應）：${LC.talent_areas.map(([k,n])=>`${k} ${n}`).join("、")}</p></div>`:""}`;}
+function vFin(v,C){const {judges,byJ}=C;
+ const rows=D.students.map(s=>{const per=judges.map(j=>{const d=byJ[j.user_id][s.id]||{};const m=finOf(d);return {m,eff:m!=null?m:s.fin_default,why:[...((d.override||{}).finance_reasons||[]),...((d.override||{}).finance_note?[(d.override||{}).finance_note]:[])]};});
+  const vals=per.map(x=>x.eff).filter(x=>x!=null);const adj=per.filter(x=>x.m!=null).length;
+  const avg=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10:null;const spread=vals.length?Math.max(...vals)-Math.min(...vals):0;
+  return {s,per,avg,adj,div:spread>=2};});
+ let list=rows.filter(r=>FF.show==="all"||(FF.show==="adj"&&r.adj)||(FF.show==="div"&&r.div)||(FF.show==="pending"&&r.s.fin_default==null)||(FF.show==="hard"&&r.s.hardship));
+ if(FF.q)list=list.filter(r=>(r.s.id+r.s.name+r.s.school).includes(FF.q));
+ const nAdj=rows.filter(r=>r.adj).length,nDiv=rows.filter(r=>r.div).length;
+ const cell=(x)=>x.m!=null?`<b>${x.m}</b>${x.why.length?` <span class="micro muted" title="${esc(x.why.join("；"))}">ⓘ</span>`:""}`:x.eff!=null?`<span class="muted">${x.eff}</span>`:'<span class="muted">—</span>';
+ v.innerHTML=`<h1>家境分</h1>
+ <div class="notebox small" style="margin-bottom:12px">預設分按學校勾選：綜援 5／書簿費全免 4／半免 3／無 1；未勾選列「待核」不推定。評審可自行調整（粗體＝已調整，灰色＝沿用預設，ⓘ＝有填理由）。平均＝各評審分數（含沿用預設）的平均；相差 2 分或以上標「分歧」。<b>此頁只供參考，不改變「匯總及委員會決定」的人次排名。</b></div>
+ <div class="filters"><select id="ffShow">${[["all","全部 229 人"],["adj","只看有評審調整（"+nAdj+"）"],["div","只看分歧（"+nDiv+"）"],["pending","只看未勾選資助（待核）"],["hard","只看學校另填經濟困難"]].map(([k,l])=>`<option value="${k}" ${FF.show===k?"selected":""}>${l}</option>`).join("")}</select>
+  <input id="ffQ" placeholder="編號／姓名／學校" value="${esc(FF.q)}" style="width:160px"><span class="small muted">${list.length} 人</span><span style="flex:1"></span><button class="btn sm" id="fcsv">匯出 CSV（家境分）</button></div>
+ <div class="tscroll" style="max-height:calc(100vh - 340px)"><table class="t"><thead><tr><th>編號</th><th>姓名</th><th>學校</th><th>資助（學校勾選）</th><th>學校另填困難</th><th>預設</th>${judges.map(j=>`<th>${esc(j.display_name)}</th>`).join("")}<th>平均</th><th>已調整</th><th>標示</th></tr></thead><tbody>
+ ${list.map(r=>`<tr><td class="mono"><a href="index.html#${r.s.id}" target="_blank" rel="noopener">${r.s.id}</a></td><td>${esc(r.s.name)}</td><td class="small">${esc(r.s.school)}</td><td class="small">${esc(r.s.support)}</td><td class="small">${r.s.hardship?`<span title="${esc(r.s.hardship)}">✓ 有</span>`:""}</td><td class="num">${r.s.fin_default??'<span class="chip warn">待核</span>'}</td>
+  ${r.per.map(x=>`<td class="num">${cell(x)}</td>`).join("")}<td class="num"><b>${r.avg??"—"}</b></td><td class="num">${r.adj||""}</td><td>${r.div?'<span class="chip bad">分歧</span>':""}</td></tr>`).join("")}</tbody></table></div>
+ <h2 style="margin-top:20px">各評審的家境評分原則</h2>
+ <div class="grid g2">${judges.map(j=>{const t=(D.jstate[j.user_id]||{}).finPrinciple;return `<div class="panel"><h3 style="margin-bottom:4px">${esc(j.display_name)}</h3><p class="small" style="white-space:pre-wrap">${t?esc(t):'<span class="muted">未填寫</span>'}</p></div>`;}).join("")}</div>`;
+ v.querySelector("#ffShow").onchange=e=>{FF.show=e.target.value;render();};
+ v.querySelector("#ffQ").oninput=e=>{FF.q=e.target.value.trim();render();const q=$("ffQ");q.focus();q.setSelectionRange(q.value.length,q.value.length);};
+ v.querySelector("#fcsv").onclick=()=>{const lines=[["申請編號","姓名","學校","資助（學校勾選）","學校另填經濟困難","預設家境分",...judges.map(j=>j.display_name+"（家境分）"),...judges.map(j=>j.display_name+"（理由）"),"平均","已調整人數","分歧"]];
+  [...rows].sort((a,b)=>a.s.id.localeCompare(b.s.id)).forEach(r=>lines.push([r.s.id,r.s.name,r.s.school,r.s.support,r.s.hardship,r.s.fin_default??"待核",...r.per.map(x=>x.eff??""),...r.per.map(x=>x.m!=null?(x.why.join("；")||"（已調整，未填理由）"):""),r.avg??"",r.adj,r.div?"是":""]));
+  lines.push([]);lines.push(["評審","家境評分原則"]);judges.forEach(j=>lines.push([j.display_name,(D.jstate[j.user_id]||{}).finPrinciple||""]));
+  dl("家境分_"+today()+".csv",lines);};}
 function vAudit(v){const name=Object.fromEntries(D.profiles.map(p=>[p.user_id,p.display_name]));
- const desc=a=>{const d=a.detail||{};if(a.action.startsWith("decisions"))return d.tier?TIERS[d.tier]:"取消分層";if(a.action.startsWith("committee"))return d.decision||"清除決定";if(a.action.startsWith("profiles"))return `${d.display_name}：權重 ${d.weight}，${d.active?"啟用":"停用"}`;if(a.action.startsWith("settings"))return d.locked?"鎖定評審":"解除鎖定";return "";};
+ const desc=a=>{const d=a.detail||{};if(a.action.startsWith("decisions")){const fv=finOf(d);return d.tier?TIERS[d.tier]+(fv!=null?" · 家境分 "+fv:""):fv!=null?"家境分 "+fv:"取消分層";}if(a.action.startsWith("committee"))return d.decision||"清除決定";if(a.action.startsWith("profiles"))return `${d.display_name}：權重 ${d.weight}，${d.active?"啟用":"停用"}`;if(a.action.startsWith("settings"))return d.locked?"鎖定評審":"解除鎖定";return "";};
  v.innerHTML=`<h1>操作紀錄</h1><p class="lead">最近 300 項改動（評審分層、委員會決定、權重、鎖定）。</p><div class="tscroll" style="max-height:calc(100vh - 220px)"><table class="t"><thead><tr><th>時間</th><th>帳號</th><th>類別</th><th>編號</th><th>內容</th></tr></thead><tbody>
  ${D.audit.map(a=>`<tr><td class="small">${new Date(a.at).toLocaleString("zh-HK",{hour12:false})}</td><td>${esc(name[a.user_id]||"系統")}</td><td class="small">${({"decisions":"評審分層","committee":"委員會決定","profiles":"帳號設定","settings":"鎖定設定"})[a.action.split(":")[0]]||esc(a.action)}</td><td class="mono">${esc(a.student_id||"")}</td><td class="small">${esc(desc(a))}</td></tr>`).join("")||'<tr><td colspan="5" class="muted">暫無紀錄</td></tr>'}</tbody></table></div>`;}
 function vSettings(v){const L=!!D.settings.locked;
